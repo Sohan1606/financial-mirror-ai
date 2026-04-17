@@ -1,0 +1,115 @@
+const express = require('express');
+const cors = require('cors');
+const multer = require('multer');
+const Papa = require('papaparse');
+const path = require('path');
+
+const app = express();
+const PORT = 5000;
+
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'client/dist')));
+
+const upload = multer({ storage: multer.memoryStorage() });
+
+// In-memory storage for demo
+let financialData = [];
+
+// Endpoint to upload CSV
+app.post('/api/upload', upload.single('csv'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No CSV file uploaded' });
+  }
+
+  Papa.parse(req.file.buffer.toString(), {
+    header: true,
+    complete: (results) => {
+      financialData = results.data.filter(row => row.date && row.amount && row.type && row.category);
+      const analysis = calculateAnalysis(financialData);
+      res.json({ data: financialData, analysis });
+    },
+    error: (error) => {
+      res.status(400).json({ error: 'CSV parse error: ' + error.message });
+    }
+  });
+});
+
+// Endpoint to get current analysis
+app.get('/api/analysis', (req, res) => {
+  const analysis = calculateAnalysis(financialData);
+  res.json(analysis);
+});
+
+// Calculate analysis
+function calculateAnalysis(data) {
+  const income = data
+    .filter(item => item.type.toLowerCase() === 'income')
+    .reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
+  
+  const expenses = data
+    .filter(item => item.type.toLowerCase() === 'expense')
+    .reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
+  
+  const savings = income - expenses;
+  
+  const categoryExpenses = {};
+  data
+    .filter(item => item.type.toLowerCase() === 'expense')
+    .forEach(item => {
+      const cat = item.category || 'Uncategorized';
+      categoryExpenses[cat] = (categoryExpenses[cat] || 0) + parseFloat(item.amount || 0);
+    });
+  
+  const topCategory = Object.entries(categoryExpenses)
+    .sort(([,a], [,b]) => b - a)[0];
+  
+  const monthlyExpenses = {};
+  data
+    .filter(item => item.type.toLowerCase() === 'expense')
+    .forEach(item => {
+      const month = new Date(item.date).toISOString().slice(0, 7);
+      monthlyExpenses[month] = (monthlyExpenses[month] || 0) + parseFloat(item.amount || 0);
+    });
+  
+  const insights = generateInsights(income, expenses, savings, categoryExpenses);
+  
+  return {
+    income,
+    expenses,
+    savings,
+    topSpendingCategory: topCategory,
+    categoryBreakdown: categoryExpenses,
+    monthlyExpenses,
+    insights
+  };
+}
+
+function generateInsights(income, expenses, savings, categories) {
+  const insights = [];
+  
+  if (expenses > income * 0.7) {
+    insights.push("🚨 You're spending 70%+ of your income. Consider cutting back on non-essentials.");
+  }
+  
+  const topCat = Object.entries(categories).sort(([,a], [,b]) => b - a)[0];
+  if (topCat) {
+    insights.push(`Your biggest spending category is "${topCat[0]}" at $${topCat[1].toFixed(0)}. Review these expenses first.`);
+  }
+  
+  if (savings > 0) {
+    const savePotential = Math.max(0, expenses * 0.1);
+    insights.push(`Great job saving! You could potentially save an extra $${savePotential.toFixed(0)} per month by reducing expenses by 10%.`);
+  }
+  
+  return insights.length ? insights : ["Upload your CSV to see personalized insights!"];
+}
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'client/dist/index.html'));
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
+
