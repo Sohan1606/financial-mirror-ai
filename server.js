@@ -5,7 +5,7 @@ const Papa = require('papaparse');
 const path = require('path');
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
@@ -43,33 +43,53 @@ app.get('/api/analysis', (req, res) => {
 
 // Calculate analysis
 function calculateAnalysis(data) {
+  if (!data || data.length === 0) {
+    return {
+      income: 0,
+      expenses: 0,
+      savings: 0,
+      topSpendingCategory: null,
+      categoryBreakdown: {},
+      monthlyExpenses: {},
+      insights: ["Upload your CSV to see personalized insights!"]
+    };
+  }
+
   const income = data
-    .filter(item => item.type.toLowerCase() === 'income')
-    .reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
+    .filter(item => item.type && item.type.toLowerCase() === 'income')
+    .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
   
   const expenses = data
-    .filter(item => item.type.toLowerCase() === 'expense')
-    .reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
+    .filter(item => item.type && item.type.toLowerCase() === 'expense')
+    .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
   
   const savings = income - expenses;
   
   const categoryExpenses = {};
   data
-    .filter(item => item.type.toLowerCase() === 'expense')
+    .filter(item => item.type && item.type.toLowerCase() === 'expense')
     .forEach(item => {
       const cat = item.category || 'Uncategorized';
-      categoryExpenses[cat] = (categoryExpenses[cat] || 0) + parseFloat(item.amount || 0);
+      categoryExpenses[cat] = (categoryExpenses[cat] || 0) + (parseFloat(item.amount) || 0);
     });
   
-  const topCategory = Object.entries(categoryExpenses)
-    .sort(([,a], [,b]) => b - a)[0];
+  const topCategoryEntries = Object.entries(categoryExpenses)
+    .sort(([,a], [,b]) => b - a);
+  const topCategory = topCategoryEntries.length > 0 ? topCategoryEntries[0] : null;
   
   const monthlyExpenses = {};
   data
-    .filter(item => item.type.toLowerCase() === 'expense')
+    .filter(item => item.type && item.type.toLowerCase() === 'expense')
     .forEach(item => {
-      const month = new Date(item.date).toISOString().slice(0, 7);
-      monthlyExpenses[month] = (monthlyExpenses[month] || 0) + parseFloat(item.amount || 0);
+      try {
+        const date = new Date(item.date);
+        if (!isNaN(date)) {
+          const month = date.toISOString().slice(0, 7);
+          monthlyExpenses[month] = (monthlyExpenses[month] || 0) + (parseFloat(item.amount) || 0);
+        }
+      } catch (e) {
+        console.error('Invalid date:', item.date);
+      }
     });
   
   const insights = generateInsights(income, expenses, savings, categoryExpenses);
@@ -78,7 +98,7 @@ function calculateAnalysis(data) {
     income,
     expenses,
     savings,
-    topSpendingCategory: topCategory,
+    topSpendingCategory: topCategory ? { name: topCategory[0], amount: topCategory[1] } : null,
     categoryBreakdown: categoryExpenses,
     monthlyExpenses,
     insights
@@ -109,7 +129,10 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'client/dist/index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+app.listen(PORT, '127.0.0.1', () => {
+  console.log(`✅ Server running on http://127.0.0.1:${PORT}`);
+}).on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${PORT} is already in use.`);
+  }
 });
-

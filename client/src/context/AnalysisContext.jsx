@@ -50,6 +50,7 @@ export function AnalysisProvider({ children }) {
       data,
       loading,
       uploadCSV,
+      setData,
       refetch: fetchAnalysis
     }}>
       {children}

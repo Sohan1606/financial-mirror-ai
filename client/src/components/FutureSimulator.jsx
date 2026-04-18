@@ -1,24 +1,39 @@
 import { useMemo } from 'react';
+import { formatINR } from '../utils/formatINR';
 
-export default function FutureSimulator({ analysis }) {
+export default function FutureSimulator({ transactions }) {
   const futureProjection = useMemo(() => {
-    if (!analysis || analysis.totalIncome === 0 || analysis.totalTransactions === 0) {
+    if (!transactions || transactions.length === 0) {
       return null;
     }
 
+    const incomeTransactions = transactions.filter(t => t.type.toLowerCase() === 'income');
+    const expenseTransactions = transactions.filter(t => t.type.toLowerCase() === 'expense');
+
+    const totalIncome = incomeTransactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+    const totalExpense = expenseTransactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+    
     // Monthly savings (average)
-    const monthlyIncome = analysis.totalIncome / Math.max(1, analysis.incomeTransactions || 1);
-    const monthlyExpense = analysis.totalExpense / Math.max(1, analysis.expenseTransactions || 1);
+    const monthlyIncome = totalIncome / Math.max(1, 1); // Assume 1 month for now or calculate from dates
+    const monthlyExpense = totalExpense / Math.max(1, 1);
     const currentMonthlySavings = monthlyIncome - monthlyExpense;
 
     // Current future (2 years = 24 months)
     const currentFutureSavings = Math.round(currentMonthlySavings * 24);
 
     // Improved: reduce top category by 30%
+    const categoryTotals = expenseTransactions.reduce((acc, t) => {
+      const cat = (t.category || 'Uncategorized').toLowerCase().trim();
+      acc[cat] = (acc[cat] || 0) + (parseFloat(t.amount) || 0);
+      return acc;
+    }, {});
+
+    const highestSpendingCategory = Object.entries(categoryTotals)
+      .sort(([,a], [,b]) => b - a)[0] || null;
+
     let improvedMonthlyExpense = monthlyExpense;
-    if (analysis.highestSpendingCategory) {
-      const topMonthly = analysis.highestSpendingCategory.amount / Math.max(1, analysis.expenseTransactions || 1);
-      improvedMonthlyExpense = monthlyExpense - (topMonthly * 0.3);
+    if (highestSpendingCategory) {
+      improvedMonthlyExpense = monthlyExpense - (highestSpendingCategory[1] * 0.3);
     }
     
     const improvedMonthlySavings = monthlyIncome - improvedMonthlyExpense;
@@ -35,7 +50,7 @@ export default function FutureSimulator({ analysis }) {
       monthlyIncome,
       monthlyExpense
     };
-  }, [analysis]);
+  }, [transactions]);
 
   if (!futureProjection) {
     return null;

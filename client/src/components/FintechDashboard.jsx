@@ -141,7 +141,7 @@ export default function FintechDashboard({ transactions }) {
                   />
                 ))}
               </Pie>
-              <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Amount']} />
+              <Tooltip formatter={(value) => [formatINR(value), 'Amount']} />
             </PieChart>
           </ResponsiveContainer>
           
@@ -157,7 +157,7 @@ export default function FintechDashboard({ transactions }) {
                   <span className="font-medium text-slate-300 truncate">{item.name}</span>
                 </div>
                 <div className="text-right">
-                  <div className="font-bold text-emerald-400">${item.value.toLocaleString()}</div>
+                  <div className="font-bold text-emerald-400">{formatINR(item.value)}</div>
                   <div className="text-xs text-slate-500">
                     {(item.value / analysis.totalExpense * 100).toFixed(1)}%
                   </div>
@@ -172,7 +172,7 @@ export default function FintechDashboard({ transactions }) {
           <div className="flex items-center gap-3 mb-6">
             <div className="w-3 h-3 bg-gradient-to-r from-red-400 to-orange-400 rounded-full" />
             <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-100 to-slate-300 bg-clip-text text-transparent">
-              Daily Expenses Trend
+              Monthly Expenses Trend
             </h2>
           </div>
           <ResponsiveContainer width="100%" height={350}>
@@ -190,6 +190,7 @@ export default function FintechDashboard({ transactions }) {
                 tickLine={false} 
                 tickMargin={12}
                 tick={{ fontSize: 12, fill: '#94A3B8' }}
+                tickFormatter={(value) => formatINR(value)}
               />
               <Tooltip 
                 contentStyle={{
@@ -197,6 +198,7 @@ export default function FintechDashboard({ transactions }) {
                   border: '1px solid hsl(220 20% 25%)',
                   borderRadius: '12px'
                 }}
+                formatter={(value) => [formatINR(value), 'Expenses']}
               />
               <Bar 
                 dataKey="expenses" 
@@ -218,7 +220,7 @@ export default function FintechDashboard({ transactions }) {
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-400">Avg monthly spend</span>
               <span className="font-bold text-emerald-400">
-                ${analysis.monthlySpendingAverage.toLocaleString()}
+                {formatINR(analysis.monthlySpendingAverage)}
               </span>
             </div>
           </div>
@@ -240,7 +242,7 @@ export default function FintechDashboard({ transactions }) {
                   Money Wasted Alert
                 </h3>
                 <p className="text-rose-300">
-                  You've spent ${analysis.highestSpendingCategory.amount.toLocaleString()} on{' '}
+                  You've spent {formatINR(analysis.highestSpendingCategory.amount)} on{' '}
                   <span className="font-semibold">{analysis.highestSpendingCategory.name}</span> 
                   ({analysis.topCategoryPercent}%)
                 </p>

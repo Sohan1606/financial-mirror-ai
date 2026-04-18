@@ -27,7 +27,7 @@ export function formatINR(number) {
 /**
  * Short format for large numbers
  */
-export function formatINRS hort(number) {
+export function formatINRShort(number) {
   const num = Math.round(number);
   if (num >= 10000000) {
     return `₹${(num / 10000000).toFixed(1)}Cr`;
